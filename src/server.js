@@ -31,9 +31,6 @@ async function start() {
       allowedHeaders: ["Content-Type", "X-CSRF-Token"]
     })
   );
-  app.get("/health", (req, res) => {
-    res.json({ status: "ok", service: "arrow-financial-api", timestamp: new Date().toISOString() });
-  });
   app.use(helmet());
   app.use(cookieParser());
   app.use(express.json());
@@ -47,7 +44,9 @@ async function start() {
 
   app.use(authMiddleware);
 
-  app.get("/health", (req, res) => res.json({ status: "ok" }));
+  app.get("/health", (req, res) => {
+    res.json({ status: "ok", service: "arrow-financial-api", timestamp: new Date().toISOString() });
+  });
   app.use("/auth", authRoutes);
   app.use("/transactions", transactionRoutes);
   app.use("/audit-logs", auditRoutes);

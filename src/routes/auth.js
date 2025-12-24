@@ -62,19 +62,32 @@ router.get("/me", (req, res) => {
   });
 });
 
-module.exports = router;
-
-router.post("/create-test-user", async (req, res) => {
-  const password = "test";
-  const hash = await bcrypt.hash(password, 10);
-
-  const user = await User.create({
-    email: "test@test.com",
-    passwordHash: hash,
-    role: "admin"
+// Development-only endpoint to create test users
+if (process.env.NODE_ENV !== "production") {
+  router.post("/create-test-user", async (req, res) => {
+    try {
+      const { email = "test@test.com", password = "test", role = "admin" } = req.body || {};
+      const existing = await User.findOne({ email: email.toLowerCase() });
+      if (existing) {
+        return res.json({ 
+          exists: true, 
+          userId: existing._id,
+          message: "User already exists"
+        });
+      }
+      const hash = await bcrypt.hash(password, 10);
+      const user = await User.create({
+        email: email.toLowerCase(),
+        passwordHash: hash,
+        role
+      });
+      res.json({ created: true, userId: user._id, email: user.email, role: user.role });
+    } catch (err) {
+      res.status(500).json({ error: { code: "SERVER_ERROR", message: err.message } });
+    }
   });
+}
 
-  res.json({ created: true, userId: user._id });
-});
+module.exports = router;
 
 
