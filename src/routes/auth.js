@@ -60,3 +60,17 @@ router.get("/me", (req, res) => {
 
 module.exports = router;
 
+router.post("/create-test-user", async (req, res) => {
+  const password = "test";
+  const hash = await bcrypt.hash(password, 10);
+
+  const user = await User.create({
+    email: "test@test.com",
+    passwordHash: hash,
+    role: "admin"
+  });
+
+  res.json({ created: true, userId: user._id });
+});
+
+
