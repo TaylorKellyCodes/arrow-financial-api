@@ -13,6 +13,10 @@ const authRoutes = require("./routes/auth");
 const transactionRoutes = require("./routes/transactions");
 const auditRoutes = require("./routes/audit");
 
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", service: "arrow-financial-api", timestamp: new Date().toISOString() });
+});
+
 async function start() {
   const config = loadConfig();
 
