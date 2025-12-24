@@ -25,7 +25,7 @@ router.post("/login", async (req, res) => {
   res.cookie("token", token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: true
+    secure: process.env.NODE_ENV === "production"
   });
   user.lastLoginAt = new Date();
   await user.save();
@@ -55,7 +55,11 @@ router.get("/me", (req, res) => {
   if (!req.user) {
     return res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Authentication required" } });
   }
-  return res.json({ user: { id: req.user.id, email: req.user.email, role: req.user.role } });
+  // Return user info and CSRF token so frontend can restore session
+  return res.json({ 
+    user: { id: req.user.id, email: req.user.email, role: req.user.role },
+    csrfToken: req.user.csrf
+  });
 });
 
 module.exports = router;
