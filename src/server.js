@@ -25,7 +25,7 @@ async function start() {
 
   app.use(
     cors({
-      origin: "https://arrowfinance.netlify.app/",
+      origin: config.corsOrigin,
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
       allowedHeaders: ["Content-Type", "X-CSRF-Token", "Authorization"]
