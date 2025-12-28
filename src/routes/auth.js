@@ -24,8 +24,9 @@ router.post("/login", async (req, res) => {
   const { token, csrfToken } = generateTokens(user, req.app.get("jwtSecret"), req.app.get("jwtExpiresIn"));
   res.cookie("token", token, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production"
+    sameSite: "none",
+    secure: true,
+    path: "/"
   });
   user.lastLoginAt = new Date();
   await user.save();
@@ -47,7 +48,12 @@ router.post("/logout", async (req, res) => {
       meta: { ip: req.ip, ua: req.get("user-agent") }
     });
   }
-  res.clearCookie("token");
+  res.clearCookie("token", {
+    httpOnly: true,
+    sameSite: "none",
+    secure: true,
+    path: "/"
+  });
   return res.json({ success: true });
 });
 

@@ -12,12 +12,21 @@ function loadConfig() {
     }
   });
 
+  // Support multiple origins for CORS (comma-separated string or single string)
+  const corsOrigin = process.env.CORS_ORIGIN;
+  let corsOriginConfig = corsOrigin;
+  
+  // If multiple origins are specified (comma-separated), convert to array
+  if (corsOrigin && corsOrigin.includes(",")) {
+    corsOriginConfig = corsOrigin.split(",").map(o => o.trim()).filter(o => o);
+  }
+  
   return {
     port: process.env.PORT || 4000,
     mongoUri: process.env.MONGODB_URI,
     jwtSecret: process.env.JWT_SECRET,
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || "1h",
-    corsOrigin: process.env.CORS_ORIGIN,
+    corsOrigin: corsOriginConfig,
     csrfTokenSecret: process.env.CSRF_TOKEN_SECRET,
     rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 200),
     rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000)
