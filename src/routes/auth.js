@@ -22,11 +22,25 @@ router.post("/login", async (req, res) => {
     return res.status(401).json({ error: { code: "INVALID_CREDENTIALS", message: "Invalid login" } });
   }
   const { token, csrfToken } = generateTokens(user, req.app.get("jwtSecret"), req.app.get("jwtExpiresIn"));
+  
+  // Calculate maxAge from JWT expiresIn (default 1h = 3600000ms)
+  const expiresIn = req.app.get("jwtExpiresIn") || "1h";
+  let maxAge = 3600000; // default 1 hour
+  if (expiresIn.includes("h")) {
+    maxAge = parseInt(expiresIn) * 3600000;
+  } else if (expiresIn.includes("d")) {
+    maxAge = parseInt(expiresIn) * 24 * 3600000;
+  } else if (expiresIn.includes("m")) {
+    maxAge = parseInt(expiresIn) * 60000;
+  }
+  
   res.cookie("token", token, {
     httpOnly: true,
     sameSite: "none",
     secure: true,
-    path: "/"
+    path: "/",
+    maxAge: maxAge,
+    // Don't set domain - let browser handle it
   });
   user.lastLoginAt = new Date();
   await user.save();
@@ -36,7 +50,12 @@ router.post("/login", async (req, res) => {
     timestamp: new Date(),
     meta: { ip: req.ip, ua: req.get("user-agent") }
   });
-  return res.json({ user: { id: user._id, email: user.email, role: user.role }, csrfToken });
+  // Also return token in response for mobile browsers that can't use cookies
+  return res.json({ 
+    user: { id: user._id, email: user.email, role: user.role }, 
+    csrfToken,
+    token // Include token in response for localStorage fallback
+  });
 });
 
 router.post("/logout", async (req, res) => {
@@ -52,7 +71,6 @@ router.post("/logout", async (req, res) => {
     httpOnly: true,
     sameSite: "none",
     secure: true,
-    partitioned: true,
     path: "/"
   });
   return res.json({ success: true });

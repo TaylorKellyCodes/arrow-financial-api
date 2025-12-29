@@ -3,11 +3,23 @@ const User = require("../models/User");
 
 async function authMiddleware(req, res, next) {
   try {
-    const token = req.cookies?.token;
+    // Try to get token from cookie first, then from Authorization header (for mobile fallback)
+    let token = req.cookies?.token;
+    
+    if (!token) {
+      // Check Authorization header as fallback for mobile browsers
+      const authHeader = req.headers?.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        token = authHeader.substring(7);
+      }
+    }
+    
     if (!token) return next();
+    
     const payload = jwt.verify(token, req.app.get("jwtSecret"));
     const user = await User.findById(payload.sub);
     if (!user) return next();
+    
     req.user = {
       id: user._id.toString(),
       role: user.role,
@@ -16,6 +28,7 @@ async function authMiddleware(req, res, next) {
     };
     next();
   } catch (err) {
+    // Token invalid or expired - silently continue (user not authenticated)
     return next();
   }
 }
