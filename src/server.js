@@ -12,6 +12,7 @@ const errorHandler = require("./middleware/errorHandler");
 const authRoutes = require("./routes/auth");
 const transactionRoutes = require("./routes/transactions");
 const auditRoutes = require("./routes/audit");
+const userRoutes = require("./routes/users");
 
 
 async function start() {
@@ -77,6 +78,7 @@ async function start() {
   app.use("/auth", authRoutes);
   app.use("/transactions", transactionRoutes);
   app.use("/audit-logs", auditRoutes);
+  app.use("/users", userRoutes);
 
   app.use(errorHandler);
 
