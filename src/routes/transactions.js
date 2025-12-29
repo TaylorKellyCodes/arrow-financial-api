@@ -160,37 +160,65 @@ router.delete("/:id", requireRole(["admin", "taylor", "dad"]), async (req, res) 
 });
 
 router.patch("/reorder", requireRole(["admin", "taylor", "dad"]), async (req, res) => {
-  const { expectedOrder, orderedIds } = req.body || {};
-  if (!Array.isArray(expectedOrder) || !Array.isArray(orderedIds)) {
-    return res.status(400).json({ error: { code: "VALIDATION", message: "expectedOrder and orderedIds required" } });
-  }
-  const current = await Transaction.find({}).sort({ sortOrder: -1 }).select("_id sortOrder");
-  const currentIds = current.map((c) => c._id.toString());
-  if (currentIds.join(",") !== expectedOrder.join(",")) {
-    return res.status(409).json({ error: { code: "ORDER_CONFLICT", message: "Ordering changed", currentOrder: currentIds } });
-  }
-  if (new Set(orderedIds).size !== orderedIds.length) {
-    return res.status(400).json({ error: { code: "VALIDATION", message: "Duplicate ids in orderedIds" } });
-  }
-  if (orderedIds.length !== currentIds.length) {
-    return res.status(400).json({ error: { code: "VALIDATION", message: "orderedIds length mismatch" } });
-  }
-  // Assign sortOrder in reverse: first item in orderedIds gets highest sortOrder (appears at top)
-  const totalItems = orderedIds.length;
-  const bulkOps = orderedIds.map((id, idx) => ({
-    updateOne: {
-      filter: { _id: id },
-      update: { $set: { sortOrder: totalItems - idx } }
+  try {
+    const { expectedOrder, orderedIds } = req.body || {};
+    if (!Array.isArray(expectedOrder) || !Array.isArray(orderedIds)) {
+      return res.status(400).json({ error: { code: "VALIDATION", message: "expectedOrder and orderedIds required" } });
     }
-  }));
-  await Transaction.bulkWrite(bulkOps);
-  logAudit({
-    userId: req.user.id,
-    action: "reorder",
-    timestamp: new Date(),
-    diff: { before: currentIds, after: orderedIds }
-  });
-  return res.json({ success: true, orderedIds });
+    
+    // Get all transactions sorted by current order
+    const current = await Transaction.find({}).sort({ sortOrder: -1 }).select("_id sortOrder");
+    const currentIds = current.map((c) => c._id.toString());
+    
+    // Verify we're reordering all transactions (no filters)
+    if (expectedOrder.length !== currentIds.length) {
+      return res.status(400).json({ error: { code: "VALIDATION", message: "Cannot reorder when filters are active. Please clear filters first." } });
+    }
+    
+    // Verify expected order matches current order
+    if (currentIds.join(",") !== expectedOrder.join(",")) {
+      return res.status(409).json({ error: { code: "ORDER_CONFLICT", message: "Ordering changed", currentOrder: currentIds } });
+    }
+    
+    // Validate orderedIds
+    if (new Set(orderedIds).size !== orderedIds.length) {
+      return res.status(400).json({ error: { code: "VALIDATION", message: "Duplicate ids in orderedIds" } });
+    }
+    
+    if (orderedIds.length !== currentIds.length) {
+      return res.status(400).json({ error: { code: "VALIDATION", message: "orderedIds length mismatch" } });
+    }
+    
+    // Verify all orderedIds exist
+    const currentSet = new Set(currentIds);
+    const allOrderedExist = orderedIds.every(id => currentSet.has(id));
+    if (!allOrderedExist) {
+      return res.status(400).json({ error: { code: "VALIDATION", message: "Some transactions in orderedIds don't exist" } });
+    }
+    
+    // Assign sortOrder in reverse: first item in orderedIds gets highest sortOrder (appears at top)
+    const totalItems = orderedIds.length;
+    const bulkOps = orderedIds.map((id, idx) => ({
+      updateOne: {
+        filter: { _id: id },
+        update: { $set: { sortOrder: totalItems - idx } }
+      }
+    }));
+    
+    await Transaction.bulkWrite(bulkOps);
+    
+    logAudit({
+      userId: req.user.id,
+      action: "reorder",
+      timestamp: new Date(),
+      diff: { before: currentIds, after: orderedIds }
+    });
+    
+    return res.json({ success: true, orderedIds });
+  } catch (err) {
+    console.error("Reorder error:", err);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: err.message || "Failed to reorder transactions" } });
+  }
 });
 
 router.get("/aggregations", async (req, res) => {
