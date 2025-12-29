@@ -33,7 +33,7 @@ router.get("/", async (req, res) => {
     filter.date = { ...(filter.date || {}), $lte: parsed };
   }
   const docs = await Transaction.find(filter)
-    .sort({ sortOrder: 1 })
+    .sort({ sortOrder: -1 })
     .skip((Number(page) - 1) * Number(limit))
     .limit(Number(limit));
   return res.json({ transactions: docs });
@@ -164,7 +164,7 @@ router.patch("/reorder", requireRole(["admin", "taylor", "dad"]), async (req, re
   if (!Array.isArray(expectedOrder) || !Array.isArray(orderedIds)) {
     return res.status(400).json({ error: { code: "VALIDATION", message: "expectedOrder and orderedIds required" } });
   }
-  const current = await Transaction.find({}).sort({ sortOrder: 1 }).select("_id sortOrder");
+  const current = await Transaction.find({}).sort({ sortOrder: -1 }).select("_id sortOrder");
   const currentIds = current.map((c) => c._id.toString());
   if (currentIds.join(",") !== expectedOrder.join(",")) {
     return res.status(409).json({ error: { code: "ORDER_CONFLICT", message: "Ordering changed", currentOrder: currentIds } });
@@ -175,10 +175,12 @@ router.patch("/reorder", requireRole(["admin", "taylor", "dad"]), async (req, re
   if (orderedIds.length !== currentIds.length) {
     return res.status(400).json({ error: { code: "VALIDATION", message: "orderedIds length mismatch" } });
   }
+  // Assign sortOrder in reverse: first item in orderedIds gets highest sortOrder (appears at top)
+  const totalItems = orderedIds.length;
   const bulkOps = orderedIds.map((id, idx) => ({
     updateOne: {
       filter: { _id: id },
-      update: { $set: { sortOrder: idx + 1 } }
+      update: { $set: { sortOrder: totalItems - idx } }
     }
   }));
   await Transaction.bulkWrite(bulkOps);
