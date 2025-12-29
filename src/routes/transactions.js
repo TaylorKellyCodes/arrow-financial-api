@@ -197,15 +197,32 @@ router.patch("/reorder", requireRole(["admin", "taylor", "dad"]), async (req, re
     }
     
     // Assign sortOrder in reverse: first item in orderedIds gets highest sortOrder (appears at top)
+    // We need to do this in two steps to avoid duplicate key errors:
+    // 1. First, set all to temporary negative values to free up the range
+    // 2. Then assign the final sortOrder values
+    
     const totalItems = orderedIds.length;
-    const bulkOps = orderedIds.map((id, idx) => ({
+    const tempOffset = 1000000; // Large offset to avoid conflicts
+    
+    // Step 1: Set all to temporary negative values
+    const tempOps = orderedIds.map((id, idx) => ({
+      updateOne: {
+        filter: { _id: id },
+        update: { $set: { sortOrder: -(tempOffset + idx) } }
+      }
+    }));
+    
+    await Transaction.bulkWrite(tempOps);
+    
+    // Step 2: Assign final sortOrder values
+    const finalOps = orderedIds.map((id, idx) => ({
       updateOne: {
         filter: { _id: id },
         update: { $set: { sortOrder: totalItems - idx } }
       }
     }));
     
-    await Transaction.bulkWrite(bulkOps);
+    await Transaction.bulkWrite(finalOps);
     
     logAudit({
       userId: req.user.id,
