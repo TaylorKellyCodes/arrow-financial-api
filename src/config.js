@@ -16,9 +16,17 @@ function loadConfig() {
   const corsOrigin = process.env.CORS_ORIGIN;
   let corsOriginConfig = corsOrigin;
   
+  // Normalize origins: remove trailing slashes and trim whitespace
+  const normalizeOrigin = (origin) => {
+    if (!origin) return origin;
+    return origin.trim().replace(/\/+$/, ""); // Remove trailing slashes
+  };
+  
   // If multiple origins are specified (comma-separated), convert to array
   if (corsOrigin && corsOrigin.includes(",")) {
-    corsOriginConfig = corsOrigin.split(",").map(o => o.trim()).filter(o => o);
+    corsOriginConfig = corsOrigin.split(",").map(normalizeOrigin).filter(o => o);
+  } else if (corsOrigin) {
+    corsOriginConfig = normalizeOrigin(corsOrigin);
   }
   
   return {

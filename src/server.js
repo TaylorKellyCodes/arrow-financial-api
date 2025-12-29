@@ -23,11 +23,38 @@ async function start() {
   app.set("jwtSecret", config.jwtSecret);
   app.set("jwtExpiresIn", config.jwtExpiresIn);
 
+  // Normalize origin for comparison (remove trailing slashes)
+  const normalizeOrigin = (origin) => {
+    if (!origin) return origin;
+    return origin.trim().replace(/\/+$/, "");
+  };
+
+  // Get allowed origins as an array for easier checking
+  const allowedOrigins = Array.isArray(config.corsOrigin) 
+    ? config.corsOrigin.map(normalizeOrigin)
+    : [normalizeOrigin(config.corsOrigin)];
+
   app.use(
     cors({
-      origin: config.corsOrigin,
+      origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) {
+          return callback(null, true);
+        }
+        
+        const normalizedRequestOrigin = normalizeOrigin(origin);
+        
+        // Check if the normalized origin is in the allowed list
+        if (allowedOrigins.includes(normalizedRequestOrigin)) {
+          // Return the original request origin to maintain exact match
+          return callback(null, origin);
+        }
+        
+        // Origin not allowed
+        callback(new Error("Not allowed by CORS"));
+      },
       credentials: true,
-      methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "X-CSRF-Token", "Authorization"]
     })
   );

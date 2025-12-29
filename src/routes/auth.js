@@ -52,6 +52,7 @@ router.post("/logout", async (req, res) => {
     httpOnly: true,
     sameSite: "none",
     secure: true,
+    partitioned: true,
     path: "/"
   });
   return res.json({ success: true });
